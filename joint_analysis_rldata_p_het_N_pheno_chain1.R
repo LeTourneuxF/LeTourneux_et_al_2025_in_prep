@@ -444,19 +444,16 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
   
   for(i in 1:n.wbtg){
     
-    # determine relationship between age and 9prim lgth
+    # determine relationship between age and 9prim lgth (from known age juveniles)
     mu[i] <- int_age + beta_prim9 * prim9[b.age.kwn.vec[i]] + eps.ageB.t[yr.kwn[i]]
     
     age.at.B[i] ~ dnorm(mu[i], sd=sd.prim) #Likelihood
-    
-    #age.at.B.all[b.age.kwn.vec[i]] <- age.at.B[i] #Put known ages in a vector at the correct places
-    
+        
     ms0[b.age.kwn.vec[i]]<- mismatch.known[i] - min.ms + 1# calculate mismatch between known age and peak nitrogen in year of marking
-    #mismatch.all[b.age.kwn.vec[i]]<- mismatch.known[i] # calculate mismatch between known age and peak nitrogen in year of marking
     
   }
   
-  
+  #Predict age of juveniles of unknown age from modeled relationshio between age and 9th primary feather
   for(i in 1:n.not.wbtg){
     
     age.at.B.est[i] ~ dnorm(mu.pred[i], sd=sd.prim) # draw age of bird from normal distribution around linear predictor mean 
@@ -465,13 +462,12 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
     
     #age.at.B.all[b.age.unk.vec[i]] <- age.at.B.est[i] # Put age of bird in vector of ages
     
-    ms0[b.age.unk.vec[i]] <- round((julian_date_B_unk[i]-age.at.B.est[i]) - peakN[yr.unk[i]]) - min.ms + 1# calculate mismatch between predicted age and peak nitrogen in year of marking
-    #mismatch.all[b.age.unk.vec[i]] <- round((julian_date_B_unk[i]-age.at.B.est[i]) - peakN[yr.unk[i]]) # calculate mismatch between predicted age and peak nitrogen in year of marking
+    ms0[b.age.unk.vec[i]] <- round((julian_date_B_unk[i]-age.at.B.est[i]) - peakN[yr.unk[i]]) - min.ms + 1# calculate mismatch between predicted age and peak nitrogen in year of marking, and put at right place in vector of mismatch values
     
   }
   
   for(i in 1:n.juv){
-    ms.class[i]<-ms.class.vec[ms0[i]]  # Classify mismatch in reduced number of classes
+    ms.class[i]<-ms.class.vec[ms0[i]]  # Classify mismatch in reduced pre-determined bins
   }
   
   #Keep a sample of estimated ages to see how well they are estimated but not the whole dataset because it takes too much memory
@@ -486,20 +482,34 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
   ############################################################################################# #
   
   # ------------------------------------------------
-  # Parameters:
-  # s: true survival probability
-  # r: recovery probability
-  # p: recapture/resighting probability
+  # Main parameters:
+  # Sj: juvenile survival probability
+  # Sa: adult survival probability
+  
+  # r.ad: recovery probability for adults
+  # r.juv: recovery probability for juveniles
+  # p.high.m: recapture probability for males in highly-observable group
+  # p.high.f: recapture probability for females in highly-observable group
+  # p.low.m: recapture probability for males in low observable group
+  # p.low.f: recapture probability for females in low observable group
+
+  # paH: Probability for adults to be in high encounter group (for initial states matrix)
+  # paE: Probability for adults to emigrate permanently from study area (for transition matrix)
+  # pjH: Probability for juveniles to be part of high encounter group conditional on 1st year survival (for transition matrix)
+  # pjE: Probability for juveniles to emigrate permanently from study area conditional on 1st year survival (for transition matrix)
+  
   # ------------------------------------------------
   # States (S):
   # 1 alive young
-  # 2 alive adult
-  # 3 recently dead and recovered
-  # 4 recently dead, but not recovered, or dead (absorbing)
+  # 2 alive adult and highly observable
+  # 3 alive adult and weakly observable
+  # 4 alive adult and permanently emigrated
+  # 5 Newly dead and recovered
+  # 6 Recently dead, but not recovered, or dead (absorbing)
   
   # Observations (O):
   # 1 seen alive
-  # 2 recovered dead
+  # 2 recovered dead (coded in transition matrix following Kéry & Schaub 2010)
   # 3 neither seen nor recovered
   # ------------------------------------------------
   
