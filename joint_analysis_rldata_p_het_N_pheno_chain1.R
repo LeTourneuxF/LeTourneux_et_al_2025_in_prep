@@ -3,7 +3,7 @@ library(nimble)
 library(nimbleEcology)
 
 
-#Functions to get and set model and MCMC state and variables
+#Functions from nimble forums to get and set model and MCMC state and variables (to restart MCMC chain where it left off after saving)
 getStateVariableNames <- function(samplerDef) {
   resetMethod <- body(samplerDef$reset)
   stateVars <- character()
@@ -65,15 +65,11 @@ getMCMCstate <- function(conf, mcmc) {
   return(mcmcStateValuesList)
 }
 
-
-#n.chains<-3
+#MCMC parmeters
 n.thin<-3
 n.thin2<-30
 n.iter = 1111
 n.burnin = 0
-
-# jpy <- N
-# apy <- N
 
 #Some useful functions
 #Function for 'not in'
@@ -81,11 +77,12 @@ n.burnin = 0
 
 #Function for calculating difference in number of lines between 2 dataframes
 diff<-function(x,y){nrow(x)-nrow(y)}
+
+#Number of unique values in a vector
 lu<-function(x){length(unique(x))}
 
-
+#Load dataset
 all.data<-readRDS("./capt_hist_AY_1990_2019_measures_pheno.RDS")
-#all.data<-readRDS("~/Doc/juvmismatch/data/capt_hist_AY_1990_2019_measures_pheno.RDS")
 
 #Annual date of peak nitrogen in plants
 pheno<-all.data$N.dat
