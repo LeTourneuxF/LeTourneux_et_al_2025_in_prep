@@ -535,7 +535,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
   #####Survival juveniles#### #
   
   
-  #Index juvenile survival by mismatch class rather than by individual
+  #Index juvenile survival by mismatch class rather than by individual (results in a lot less transition matrix slices, and saves a lot of memory and model graph building time - days)
   for(c in 1:n.ms.class){
     
     for (t in 1:end.occasion.p1){# période sans chasse
@@ -579,7 +579,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
     lpjH[s] ~ dnorm(0, sd = 1.6) #High-p
     lpjE[s] ~ dnorm(0, sd = 1.6) #Emigration
     
-    # constrain the transitions such that their sum is < 1
+    # constrain the transitions such that the sum of probabilities for surviving juveniles going to adult high, low and emigrated is = 1
     pjH[s] <- exp(lpjH[s]) / (1 + exp(lpjH[s]) + exp(lpjE[s])) #High-p
     pjE[s] <- exp(lpjE[s]) / (1 + exp(lpjH[s]) + exp(lpjE[s])) #Emigration
     
@@ -588,11 +588,9 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
   }#Fin for s in 1:sex
   
   #Betas
-  #beta.p.L ~ dnorm(0,sd=0.8) #Prior for mean effect of heterogeneity on p
-  #beta.p.L ~ dunif(0,1) #Prior for mean effect of heterogeneity on p, new parameterization
-  beta.p.L ~ dunif(0,1) #Prior for mean effect of heterogeneity on p, constrained to be negative so that p.low<p.high
+  beta.p.L ~ dunif(0,1) #Prior for mean effect of heterogeneity on p, constrained to be function of p.high, so that p.low<p.high (i.e., no jumping between both parameters during sampling)
   beta.p.f ~ dnorm(0,sd=1.6) #Prior for effect of female on recap, should be 0 if heterogeneity is well set up
-  beta.peakN ~ dnorm (0,sd=1.6) #Prior for effect of annual êak Nitrogen date on juvenile survival
+  beta.peakN ~ dnorm (0,sd=1.6) #Prior for effect of annual peak Nitrogen date on juvenile survival
   
   #mismatch effect
   beta.ms ~ dnorm(0, sd=1.6)
@@ -680,7 +678,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
         gamma[2,1,c,t,s] <- 0                     #Never becomes alive young
         gamma[2,2,c,t,s] <- Sa[t] * (1-paE[s])    #Survival (stays high-p)
         gamma[2,3,c,t,s] <- 0                     #Survival (no tr. to low-p)
-        gamma[2,4,c,t,s] <- Sa[t] * paE[s]        #Survival (no emigration for ad)
+        gamma[2,4,c,t,s] <- Sa[t] * paE[s]        #Survival (emigrates)
         gamma[2,5,c,t,s] <- (1-Sa[t]) *r.ad[t+1]     #Can die and be recovered
         gamma[2,6,c,t,s] <- (1-Sa[t]) *(1-r.ad[t+1]) #Can die and not be recovered
         
@@ -688,7 +686,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
         gamma[3,1,c,t,s] <- 0                     #Never becomes alive young
         gamma[3,2,c,t,s] <- 0                     #Survival (no tr. to high-p)
         gamma[3,3,c,t,s] <- Sa[t] * (1-paE[s])    #Survival (stays low-p)
-        gamma[3,4,c,t,s] <- Sa[t] * paE[s]        #Survival (no emigration for ad)
+        gamma[3,4,c,t,s] <- Sa[t] * paE[s]        #Survival (emigrates)
         gamma[3,5,c,t,s] <- (1-Sa[t]) *r.ad[t+1]     #Can die and be recovered
         gamma[3,6,c,t,s] <- (1-Sa[t]) *(1-r.ad[t+1]) #Can die and not be recovered
         
@@ -708,7 +706,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
         gamma[5,5,c,t,s] <- 0
         gamma[5,6,c,t,s] <- 1
         
-        #"Old" dead (all ages)
+        #"Old" dead (all ages) (or newly dead and not recovered)
         gamma[6,1,c,t,s] <- 0
         gamma[6,2,c,t,s] <- 0
         gamma[6,3,c,t,s] <- 0
@@ -724,12 +722,10 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
   
   ##################  SURVIVAL  #######################
   
-  #for adults, only need to index gamma by time and not individual since they share the same matrix slice for a given time step (no individual covariates for AD)
+  #for adults, only need to index gamma by time and not individual since they share the same matrix slice for a given time step (no individual covariates for AD, saves on model graph building time)
   #gi.ad takes the value of number of juveniles +1,
-  #gi[i] in the likelihood below takes the value of juvenile ID for juveniles and number of juveniles +1 for all adults
   for(s in 1:n.sex){
     for (t in 1:(n.occasions-1)){
-      
       
       #Alive young
       gamma[1,1,gi.ad,t,s] <- 0                      #Never stays alive young
@@ -743,7 +739,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
       gamma[2,1,gi.ad,t,s] <- 0                     #Never becomes alive young
       gamma[2,2,gi.ad,t,s] <- Sa[t] * (1-paE[s])    #Survival (stays high-p) 
       gamma[2,3,gi.ad,t,s] <- 0                     #Survival (no tr. to low-p)
-      gamma[2,4,gi.ad,t,s] <- Sa[t] * paE[s]        #Survival (no emigration for ad)
+      gamma[2,4,gi.ad,t,s] <- Sa[t] * paE[s]        #Survival (emigrates)
       gamma[2,5,gi.ad,t,s] <- (1-Sa[t]) *r.ad[t+1]     #Can die and be recovered 
       gamma[2,6,gi.ad,t,s] <- (1-Sa[t]) *(1-r.ad[t+1]) #Can die and not be recovered 
       
@@ -751,7 +747,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
       gamma[3,1,gi.ad,t,s] <- 0                     #Never becomes alive young
       gamma[3,2,gi.ad,t,s] <- 0                     #Survival (no tr. to high-p) 
       gamma[3,3,gi.ad,t,s] <- Sa[t] * (1-paE[s])    #Survival (stays low-p) 
-      gamma[3,4,gi.ad,t,s] <- Sa[t] * paE[s]        #Survival (no emigration for ad)
+      gamma[3,4,gi.ad,t,s] <- Sa[t] * paE[s]        #Survival (emigrates)
       gamma[3,5,gi.ad,t,s] <- (1-Sa[t]) *r.ad[t+1]     #Can die and be recovered 
       gamma[3,6,gi.ad,t,s] <- (1-Sa[t]) *(1-r.ad[t+1]) #Can die and not be recovered 
       
@@ -771,7 +767,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
       gamma[5,5,gi.ad,t,s] <- 0
       gamma[5,6,gi.ad,t,s] <- 1
       
-      #"Old" dead (all ages)
+      #"Old" dead (all ages) (or newly dead and not recovered)
       gamma[6,1,gi.ad,t,s] <- 0
       gamma[6,2,gi.ad,t,s] <- 0
       gamma[6,3,gi.ad,t,s] <- 0
@@ -783,7 +779,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
   }#for(s in 1:n.sex)
   ##################  EVENTS  ####################
   #Events with capture probability for males first and females 2nd
-  for(m in 1:n.occasions){ # m takes the value of the marking occasion, because all individuals marked in the same occasion share the same capture an recovery probabilities
+  for(m in 1:n.occasions){ # m takes the value of the marking occasion, because all individuals marked in the same occasion share the same capture and recovery probabilities
     
     for (t in (m+1):n.occasions){
       # Define probabilities of O(t) given S(t)
@@ -809,7 +805,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
       omega[4,3,m,t,1] <- 1
       
       omega[5,1,m,t,1] <- 0
-      omega[5,2,m,t,1] <- 1
+      omega[5,2,m,t,1] <- 1 #recoveries coded in transitions so here this = 1
       omega[5,3,m,t,1] <- 0
       
       omega[6,1,m,t,1] <- 0
@@ -820,7 +816,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
       
     } # for t in (f[i]+1):(n.occasions)
     
-    #Here, omega is indexed by marking occasion (3rd dim) and we need to give values for initial capture (at time = m)
+    #Here, omega is indexed by marking occasion (3rd dim) and we need to give values for initial capture (at time t = m)
     
     #Alive young observed as young first capture
     omega[1,1,m,m,1] <- 1  
@@ -855,7 +851,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
     
   }#for m in 1:n.occasions
   
-  #Events with capture probability for females 2nd
+  #Events with capture probability for females 2nd (last array dimension is sex)
   for(m in 1:n.occasions){ # m takes the value of the marking occasion, because all individuals marked in the same occasion share the same capture an recovery probabilities
     
     for (t in (m+1):n.occasions){
@@ -882,7 +878,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
       omega[4,3,m,t,2] <- 1
       
       omega[5,1,m,t,2] <- 0
-      omega[5,2,m,t,2] <- 1
+      omega[5,2,m,t,2] <- 1 #recoveries coded in transitions so here this = 1
       omega[5,3,m,t,2] <- 0
       
       omega[6,1,m,t,2] <- 0
@@ -927,20 +923,15 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
     
     
   }#for m in 1:n.occasions
+
   
-  ms.class[(n.juv+1):nind]<-n.ms.class+1
-  
-  # for(i in 1:n.juv){
-  #   
-  #   gi[i]<-ms.class[i]
-  #   
-  # }
-  # 
-  # gi[(n.juv+1):nind]<-n.ms.class+1
+
   ########################################################## #
   ###################### LIKELIHOOD ########################
   ########################################################## #
-  
+
+  # To associate correct transition matrix slice to adults in likelihood statement below
+  ms.class[(n.juv+1):nind]<-n.ms.class+1
   
   # Likelihood
   for (i in 1:nind) {
@@ -1016,7 +1007,7 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
     
   }
   
-  #mismatch effect on S - predictions including peakN effect, with range of mismatch observed for each pheno bin
+  #mismatch effect on S - predictions including peakN effect, with range of mismatch observed for each pheno bin, not really interesting in this model because no interaction.
   for(i in 1:ms.pred.pheno){
     
     logit(S.pred.ms.early[i])<- phi.J + beta.ms * range.mismatch.pheno.early[i] + beta.peakN * scaled.pN.early
@@ -1032,26 +1023,11 @@ joint_mismatch_surv_analysis_optz<-nimbleCode({
     S.pred.ms.bin[c]<-phi.J + beta.ms * mismatch.scaled[c]
     
   }
-
-  
-  #Information on estimated mismatch
-  # for(y in 1:(n.occasions-1)){
-  #   
-  #   mean.yr.ms[y]<-mean(ms0[which(f==y)])
-  #   sd.yr.ms[y]<-sd(ms0[which(f==y)])
-  #   
-  #   
-  # }  
-  # 
-  
-  
 })
 
 
 
-#mean_ms_all[t]<- calc_avg_ms0_t(ms0_vec=ms0, ms0_avg_index_vec=juv.f.indices[1:n.juv.marked.yr[t],t], min.ms=min.ms)
-
-# function to calculate annual average juvenile survival:
+# nimbleFunction to calculate annual average juvenile survival in model:
 calc_avg_ms0_t <- nimbleFunction(
   run = function(ms0_vec = double(1), ms0_avg_index_vec = double(1)) { # all model variables should be doubles, even if they hold integer values
     ans <- 0
@@ -1087,44 +1063,7 @@ calc_sd_ms0_t <- nimbleFunction(
     returnType(double())
   })
 
-#check_which_marked[t]<- check_calculations(ms0_vec=ms0, ms0_avg_index_vec=juv.f.indices[1:n.juv.marked.yr[t],t])
 
-# check_calculations <- nimbleFunction(
-#   run = function(ms0_avg_index_vec = double(1)) { # all model variables should be doubles, even if they hold integer values
-#     ans<-0
-#     n <- length(ms0_avg_index_vec)
-#     if(n==0) return(ans)
-#     for(i in 1:n) {
-#       ans <- ans +  ms0_avg_index_vec[i]
-#     }
-#     ans <- ans/n
-#     return(ans)
-#     returnType(double())
-#   })
-
-
-
-
-
-# calc_mean_Sj_t <- nimbleFunction(
-#   run = function(ms0_vec = double(1), Sj_pred_index_vec = double(1), f.juv.index) { # all model variables should be doubles, even if they hold integer values
-#     
-#     index.command = paste("f.juv.index$v",t,sep="")
-#     ans <- 0
-#     n <- length(eval(parse(text=index.command)))
-#     
-#     mean_ms_all[t]<-mean((ms0[])+min_ms-1)
-#     
-#     
-#     
-#     if(n==0) return(ans)
-#     for(i in 1:n) {
-#       ans <- ans + ms0_vec[ eval(parse(text=index.command))[i] ]
-#     }
-#     ans <- ans/n
-#     return(ans)
-#     returnType(double())
-#   })
 
 
 myConstants = my.constants.joint
@@ -1141,7 +1080,7 @@ Sys.time()
 #### CALCUL CANADA MULTIPLE SAVE CODE
 
 debut=Sys.time()
-#Build model
+# Build model
 gsg.mod <- nimbleModel(code = myCode,
                        data = myData,
                        constants = myConstants,
@@ -1151,7 +1090,7 @@ gsg.mod <- nimbleModel(code = myCode,
 paste('built model',Sys.time())
 (time_built=Sys.time()-debut)
 
-#MCMC
+# build MCMC
 debut=Sys.time()
 conf <- configureMCMC(gsg.mod,monitors=myParameters, monitors2=myParameters2, 
                       useConjugacy = F, enableWAIC = T)
@@ -1159,7 +1098,7 @@ Sys.time()
 gsg.MCMC <- buildMCMC(conf)
 paste('built MCMC',Sys.time())
 
-#Compile model and MCMC 
+# Compile model and MCMC 
 C.gsg.mod<-compileNimble(gsg.mod)
 Cgsg.MCMC <- compileNimble(gsg.MCMC, project=gsg.mod)
 paste('compiled MCMC and model',Sys.time())
@@ -1167,6 +1106,7 @@ fin=Sys.time()
 (time_mcmc=fin-debut)
 
 
+# Run model in many smaller runs to save progress as we go and avoid losing information in case of cluster shutdown (yes, this happened)
 
 start.chain=Sys.time()
 #First run, keep all samples for the first tests, can always discard them later
@@ -1180,7 +1120,8 @@ saveRDS(chain1,file = './result_chain1/chain1_run0.rds')
 
 cat(paste0('saved_samples init, run ',i,' at ',Sys.time(),'\n', sep=''))
 
-
+#Save log probabilities to compute WAIC afterwards, and be able to remove parameters from age model (some pwaic>0.4 in age model, which make the WAIC unstable and unreliable)
+#Should be OK since only interested in comparing different survival models and age model never changes, so no need to include its parameters for model selection.
 chain1_logProbs<-as.matrix(Cgsg.MCMC$mvSamples2)
 cat(paste0('matrix logprobs init, run ',i,' at ',Sys.time(),'\n', sep=''))
 
